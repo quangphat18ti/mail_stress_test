@@ -1524,6 +1524,12 @@ chmod +x ./run.sh
 # Tuỳ chọn: chỉ định config khác
 ./run.sh all -c ./config/default.yaml
 
+# Chạy với Docker Compose (không cần cài Go/MongoDB local)
+./run.sh --docker all
+
+# Kết hợp options
+./run.sh --docker seed -c ./config/default.yaml
+
 # Truyền thêm tham số trực tiếp cho chương trình Go (sau --)
 ./run.sh stress -c ./config/default.yaml -- -seed=false
 ```
@@ -1539,6 +1545,8 @@ Ghi chú:
 ./mail-stress-test -seed -config=config/default.yaml
 # hoặc dùng run.sh
 ./run.sh seed -c ./config/default.yaml
+# hoặc dùng Docker
+./run.sh --docker seed
 ```
 
 #### 2. Run stress test only
@@ -1546,6 +1554,8 @@ Ghi chú:
 ./mail-stress-test -stress -benchmark=false
 # hoặc dùng run.sh
 ./run.sh stress
+# hoặc dùng Docker
+./run.sh --docker stress
 ```
 
 #### 3. Run benchmark only
@@ -1553,6 +1563,8 @@ Ghi chú:
 ./mail-stress-test -stress=false -benchmark
 # hoặc dùng run.sh
 ./run.sh bench
+# hoặc dùng Docker
+./run.sh --docker bench
 ```
 
 #### 4. Run full test suite
@@ -1560,6 +1572,8 @@ Ghi chú:
 ./mail-stress-test -config=config/default.yaml
 # hoặc dùng run.sh
 ./run.sh all -c ./config/default.yaml
+# hoặc dùng Docker
+./run.sh --docker all
 ```
 
 #### 5. Custom configuration via ENV
@@ -1569,6 +1583,8 @@ export MONGO_DATABASE="my_mail_test"
 ./mail-stress-test
 # hoặc dùng run.sh (ENV vẫn có hiệu lực)
 ./run.sh all
+# hoặc dùng Docker (ENV override trong docker-compose.yml)
+./run.sh --docker all
 ```
 
 ### NEW: Docker Setup & Usage
@@ -1596,6 +1612,18 @@ docker-compose down
 
 # 5) Clean up (remove volumes)
 docker-compose down -v
+```
+
+#### Sử dụng run.sh với Docker
+```bash
+# Tất cả commands trên đều hỗ trợ --docker flag
+./run.sh --docker setup    # Không cần (handled by Dockerfile)
+./run.sh --docker build    # Không cần (use docker-compose build)
+./run.sh --docker seed
+./run.sh --docker stress
+./run.sh --docker bench
+./run.sh --docker all
+./run.sh --docker open-report  # Reports vẫn ở ./reports
 ```
 
 #### Custom Configuration

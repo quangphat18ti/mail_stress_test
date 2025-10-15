@@ -29,6 +29,7 @@ Commands:
 
 Options:
   -c, --config <path>   Path to config YAML (default: config/default.yaml)
+  -d, --docker          Run commands via Docker Compose instead of locally
 
 Tips:
   Append flags after "--" to pass directly to the Go program (e.g., duration via config).
@@ -44,6 +45,10 @@ ensure_go() {
 }
 
 setup() {
+  if [[ "$USE_DOCKER" == true ]]; then
+    echo "Setup not needed in Docker mode. Dependencies are handled in Dockerfile."
+    return
+  fi
   ensure_go
   print_header "Downloading dependencies"
   (cd "$ROOT_DIR" && go mod tidy)
@@ -52,6 +57,10 @@ setup() {
 }
 
 build() {
+  if [[ "$USE_DOCKER" == true ]]; then
+    echo "Build not needed in Docker mode. Use 'docker-compose build' instead."
+    return
+  fi
   ensure_go
   print_header "Building binary"
   (cd "$ROOT_DIR" && go build -o "$BINARY_PATH" ./cmd/main.go)
@@ -67,10 +76,20 @@ run_program() {
   fi
   [[ -f "$config_path" ]] || { echo "Config not found: $config_path" >&2; exit 1; }
 
-  [[ -x "$BINARY_PATH" ]] || build
-
-  print_header "Running: $(basename "$BINARY_PATH")"
-  "$BINARY_PATH" -config="$config_path" "$@"
+  if [[ "$USE_DOCKER" == true ]]; then
+    # Ensure docker-compose is available
+    if ! command -v docker-compose >/dev/null 2>&1; then
+      echo "Error: docker-compose not found. Install Docker Compose to use --docker." >&2
+      exit 1
+    fi
+    print_header "Running via Docker Compose: $(basename "$BINARY_PATH")"
+    # In Docker, config is always at config/default.yaml (copied in Dockerfile)
+    docker-compose run --rm app ./mail-stress-test -config=config/default.yaml "$@"
+  else
+    [[ -x "$BINARY_PATH" ]] || build
+    print_header "Running: $(basename "$BINARY_PATH")"
+    "$BINARY_PATH" -config="$config_path" "$@"
+  fi
 }
 
 seed_cmd() {
@@ -121,12 +140,17 @@ shift || true
 
 CONFIG="$DEFAULT_CONFIG"
 EXTRA_ARGS=()
+USE_DOCKER=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -c|--config)
       CONFIG="${2:-}"
       shift 2
+      ;;
+    -d|--docker)
+      USE_DOCKER=true
+      shift
       ;;
     --)
       shift
