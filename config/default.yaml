@@ -1,0 +1,30 @@
+mongodb:
+  uri: "mongodb://localhost:27017"
+  database: "mail_stress_test"
+  timeout: 10
+
+stress_test:
+  num_users: 100
+  num_mails_per_user: 1000
+  concurrent_workers: 50
+  request_rate: 100
+  duration: 5m
+  use_api: false
+  api_endpoint: "http://localhost:8080"
+  operations:
+    create_mail_weight: 30
+    list_mail_weight: 50
+    search_weight: 20
+
+benchmark:
+  search_methods:
+    - "text_search"
+    - "regex"
+    - "aggregation"
+  sample_size: 1000
+  iterations: 100
+
+report:
+  output_dir: "./reports"
+  generate_chart: true
+  json_report: true
