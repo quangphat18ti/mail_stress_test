@@ -1493,7 +1493,7 @@ go mod download
 go build -o mail-stress-test ./cmd/main.go
 ```
 
-### NEW: Quick start with run.sh
+## 14(NEW): Quick start with run.sh
 
 Script trợ giúp `run.sh` giúp tự động build và chạy các tác vụ phổ biến. Trên macOS/Linux, cấp quyền chạy và sử dụng:
 
@@ -1537,6 +1537,18 @@ chmod +x ./run.sh
 Ghi chú:
 - Biến môi trường hỗ trợ override: `MONGO_URI`, `MONGO_DATABASE`, `CONFIG_PATH`.
 - `run.sh` tự động build nếu chưa có binary. Đường dẫn có khoảng trắng vẫn hoạt động.
+
+### 🚀 Cách sử dụng mới:
+```bash
+# Local development
+./run.sh setup && ./run.sh build && ./run.sh all
+
+# Hoặc Docker (không cần cài Go/MongoDB)
+./run.sh --docker all
+
+# Kết hợp options
+./run.sh --docker seed -c ./config/default.yaml
+```
 
 ### Usage Examples
 
@@ -1587,7 +1599,7 @@ export MONGO_DATABASE="my_mail_test"
 ./run.sh --docker all
 ```
 
-### NEW: Docker Setup & Usage
+## 15(NEW): Docker Setup & Usage
 
 Sử dụng Docker để chạy ứng dụng và MongoDB mà không cần cài đặt Go hoặc MongoDB locally.
 
