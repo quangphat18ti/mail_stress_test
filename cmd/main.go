@@ -8,12 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"mail-stress-test/benchmark"
 	"mail-stress-test/config"
 	"mail-stress-test/database"
 	"mail-stress-test/generator"
 	"mail-stress-test/handler"
+	"mail-stress-test/monitoring"
 	"mail-stress-test/report"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -104,6 +106,35 @@ func main() {
 
 	var stressResult *benchmark.StressTestResult
 	var searchResults map[string]*benchmark.SearchBenchmarkResult
+	var monitoringReport *monitoring.MonitoringReport
+
+	// Setup monitoring if enabled
+	var monitoringMgr *monitoring.MonitoringManager
+	if cfg.Monitoring.Enabled {
+		fmt.Println("\n=== Setting up Monitoring ===")
+		monitoringConfig := monitoring.MonitoringManagerConfig{
+			EnablePrometheus:    cfg.Monitoring.PrometheusURL != "",
+			PrometheusURL:       cfg.Monitoring.PrometheusURL,
+			EnableSystemMonitor: cfg.Monitoring.EnableSystemMonitor,
+			SystemConfig: monitoring.MonitoringConfig{
+				TargetHost:     cfg.Monitoring.TargetHost,
+				IsDocker:       cfg.Monitoring.IsDocker,
+				ContainerID:    cfg.Monitoring.ContainerID,
+				ScrapeInterval: cfg.Monitoring.ScrapeInterval,
+			},
+			ScrapeInterval:    cfg.Monitoring.ScrapeInterval,
+			OutputDir:         cfg.Report.OutputDir,
+			EnableRealtimeLog: cfg.Monitoring.EnableRealtimeLog,
+		}
+		monitoringMgr = monitoring.NewMonitoringManager(monitoringConfig)
+
+		if err := monitoringMgr.StartMonitoring(ctx); err != nil {
+			log.Printf("Warning: Failed to start monitoring: %v", err)
+		}
+
+		// Give monitoring a moment to start
+		time.Sleep(2 * time.Second)
+	}
 
 	// Run stress test
 	if *runStress {
@@ -147,6 +178,17 @@ func main() {
 		fmt.Println(comparisonReport)
 	}
 
+	// Stop monitoring and get report
+	if monitoringMgr != nil {
+		fmt.Println("\n=== Collecting Monitoring Results ===")
+		monitoringReport, err = monitoringMgr.StopMonitoring(ctx)
+		if err != nil {
+			log.Printf("Warning: Failed to stop monitoring: %v", err)
+		} else {
+			monitoringMgr.PrintSummary(monitoringReport)
+		}
+	}
+
 	// Generate reports
 	if stressResult != nil || searchResults != nil {
 		fmt.Println("\n=== Generating Reports ===")
@@ -167,4 +209,8 @@ func main() {
 	}
 
 	fmt.Println("\n✅ Benchmark completed successfully!")
+
+	if monitoringReport != nil {
+		fmt.Println("\n💡 Tip: Check monitoring report for detailed performance insights!")
+	}
 }

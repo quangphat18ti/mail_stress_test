@@ -12,6 +12,7 @@ type Config struct {
 	StressTest StressTestConfig `yaml:"stress_test"`
 	Benchmark  BenchmarkConfig  `yaml:"benchmark"`
 	Report     ReportConfig     `yaml:"report"`
+	Monitoring MonitoringConfig `yaml:"monitoring"`
 }
 
 type MongoDBConfig struct {
@@ -47,6 +48,17 @@ type ReportConfig struct {
 	OutputDir     string `yaml:"output_dir"`
 	GenerateChart bool   `yaml:"generate_chart"`
 	JSONReport    bool   `yaml:"json_report"`
+}
+
+type MonitoringConfig struct {
+	Enabled             bool          `yaml:"enabled"`
+	PrometheusURL       string        `yaml:"prometheus_url"`  // e.g., "http://localhost:9090/metrics"
+	ScrapeInterval      time.Duration `yaml:"scrape_interval"` // e.g., 5s
+	EnableSystemMonitor bool          `yaml:"enable_system_monitor"`
+	TargetHost          string        `yaml:"target_host"` // For remote monitoring: "user@host"
+	IsDocker            bool          `yaml:"is_docker"`
+	ContainerID         string        `yaml:"container_id"`
+	EnableRealtimeLog   bool          `yaml:"enable_realtime_log"`
 }
 
 func LoadConfig(path string) (*Config, error) {

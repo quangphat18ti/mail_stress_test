@@ -11,6 +11,7 @@ Hệ thống stress test và benchmark cho mail system với Golang và MongoDB.
 - ✅ **Search Benchmark**: So sánh 4 strategies (Text Search, Regex, Aggregation, Index Optimized)
 - ✅ **Handler Pattern**: DBHandler (direct DB) và APIHandler (REST API)
 - ✅ **Threading**: Email threading với ReplyTo field
+- ✅ **Performance Monitoring**: Monitor CPU, RAM, connections, Prometheus metrics của backend 🆕
 - ✅ **Reports**: JSON reports và HTML charts với Chart.js
 - ✅ **Docker Support**: Docker Compose với MongoDB
 
@@ -41,8 +42,15 @@ mail-stress-test/
 ├── report/
 │   ├── reporter.go                # Report generator
 │   └── chart.go                   # HTML chart generator
+├── monitoring/                    # 🆕 Performance monitoring
+│   ├── prometheus_client.go       # Prometheus metrics scraper
+│   ├── system_monitor.go          # System-level monitoring (CPU, RAM)
+│   └── manager.go                 # Monitoring orchestration
+├── examples/
+│   └── fiber-backend-with-monitoring/  # Example Fiber app with Prometheus
 ├── Dockerfile
 ├── docker-compose.yml
+├── MONITORING.md                  # 🆕 Detailed monitoring guide
 └── run.sh                         # Helper script
 ```
 
@@ -131,6 +139,16 @@ report:
   output_dir: "./reports"
   generate_chart: true
   json_report: true
+
+monitoring:  # 🆕 Performance Monitoring
+  enabled: false
+  prometheus_url: "http://localhost:3000/metrics"  # Fiber app metrics endpoint
+  scrape_interval: 5s
+  enable_system_monitor: false  # Monitor CPU, RAM, connections
+  target_host: ""  # For remote: "user@host"
+  is_docker: false
+  container_id: ""
+  enable_realtime_log: true
 ```
 
 ### Configuration Options
@@ -139,6 +157,7 @@ report:
 - **Stress Test**: Number of users/mails, concurrent workers, request rate, operation weights
 - **Benchmark**: Search methods to compare, sample size, iterations
 - **Report**: Output directory, enable charts/JSON
+- **Monitoring** 🆕: Enable Prometheus/system monitoring, scrape interval, Docker support
 
 ## Installation & Usage
 
@@ -267,8 +286,9 @@ Reports được lưu trong `./reports/`:
 
 ```
 reports/
-├── report_2025-10-15_14-30-00.json    # JSON report với metrics
-└── chart_2025-10-15_14-30-00.html     # HTML chart với Chart.js
+├── report_2025-10-15_14-30-00.json       # JSON report với metrics
+├── chart_2025-10-15_14-30-00.html        # HTML chart với Chart.js
+└── monitoring_2025-10-15_14-30-00.json   # 🆕 Monitoring metrics
 ```
 
 ### JSON Report Structure
@@ -370,6 +390,97 @@ stress_test:
   request_rate: 50  # Giảm rate xuống
 ```
 
+## 🆕 Performance Monitoring
+
+### Tổng quan
+
+Tool hỗ trợ monitor real-time performance của Fiber backend trong quá trình stress test:
+
+**Metrics được thu thập:**
+- 📊 **Prometheus Metrics**: HTTP requests, response times (P50/P95/P99), errors, goroutines
+- 💻 **System Metrics**: CPU usage, RAM usage, TCP connections, load average
+- 🔍 **Performance Insights**: Tự động phát hiện bottlenecks (high CPU, memory leaks, connection spikes)
+
+### Quick Start
+
+#### 1. Enable Monitoring trong Config
+
+```yaml
+monitoring:
+  enabled: true
+  prometheus_url: "http://localhost:3000/metrics"
+  scrape_interval: 5s
+  enable_system_monitor: true
+  enable_realtime_log: true
+```
+
+#### 2. Add Prometheus to Your Fiber App
+
+Xem chi tiết trong `examples/fiber-backend-with-monitoring/` hoặc đọc `MONITORING.md`
+
+```go
+// Expose Prometheus metrics endpoint
+app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+```
+
+#### 3. Run Stress Test with Monitoring
+
+```bash
+./mail-stress-test -stress -use-api -config config/default.yaml
+```
+
+### Sample Monitoring Output
+
+```
+====================================================================================================
+📊 MONITORING SUMMARY
+====================================================================================================
+
+⏱️  Test Duration: 5m0s
+
+🔍 Prometheus Metrics:
+   HTTP Requests:      15000 total (50.00 req/s)
+   Error Rate:         0.23%
+   Avg CPU:            47.50%
+   Avg Memory:         530.00 MB
+   Peak Goroutines:    1250
+   Response Times:     P50: 12.34ms | P95: 45.67ms | P99: 89.01ms
+
+💻 System Metrics:
+   CPU Usage:          Avg: 45.30% | Peak: 78.20%
+   Memory Usage:       Avg: 2048MB (69.5%) | Peak: 2304MB
+   TCP Connections:    Avg: 265 | Peak: 425
+
+💡 Performance Insights:
+   ⚠️  High CPU usage: 78.20%
+   📡 Peak connections: 425 - ensure connection pooling
+====================================================================================================
+```
+
+### Monitoring Features
+
+| Feature | Description |
+|---------|-------------|
+| **Prometheus Scraping** | Tự động scrape metrics từ `/metrics` endpoint |
+| **System Monitoring** | Monitor CPU, RAM, connections qua `top`, `free`, `netstat` |
+| **Docker Support** | Monitor containers qua `docker stats` |
+| **Remote Monitoring** | Monitor server từ xa qua SSH |
+| **Real-time Logging** | Hiển thị metrics real-time trong console |
+| **Performance Insights** | Tự động phát hiện: high CPU, memory leaks, connection spikes |
+| **JSON Export** | Export full metrics history to JSON |
+
+### Documentation
+
+📚 **Chi tiết đầy đủ**: Xem [MONITORING.md](./MONITORING.md) để biết:
+- Setup Prometheus cho Fiber app
+- Các metrics được thu thập
+- Remote monitoring via SSH
+- Docker container monitoring
+- Troubleshooting guide
+- Best practices
+
+📝 **Example**: Check `examples/fiber-backend-with-monitoring/` cho complete working example
+
 ## Integration với Backend API
 
 Nếu sử dụng API Handler, backend API cần implement các endpoints:
@@ -380,6 +491,7 @@ Nếu sử dụng API Handler, backend API cần implement các endpoints:
 POST   /api/mails              # Create mail
 GET    /api/mails              # List mails (với userId, page, limit params)
 GET    /api/mails/search       # Search mails (với userId, query params)
+GET    /metrics                # 🆕 Prometheus metrics (optional, for monitoring)
 ```
 
 ### Request/Response Format
@@ -409,13 +521,16 @@ MIT License
 Tool này cung cấp framework hoàn chỉnh để:
 - ✅ Test performance của mail system
 - ✅ So sánh các search strategies với metrics chi tiết (P50/P95/P99)
-- ✅ Generate reports với visualizations
+- ✅ Monitor real-time performance của backend (CPU, RAM, latency, errors) 🆕
+- ✅ Generate comprehensive reports với visualizations
 - ✅ Dễ dàng integrate với backend API hoặc database trực tiếp
 - ✅ Docker support cho deployment đơn giản
 - ✅ Handler Pattern cho flexibility
 - ✅ Strategy Pattern cho pluggable search methods
 
 Để bắt đầu nhanh nhất: `./run.sh all` 🚀
+
+📊 **Mới**: Enable monitoring để track performance của Fiber backend trong real-time!
 
 ---
 
