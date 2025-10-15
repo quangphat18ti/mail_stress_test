@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mail-stress-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: mail_stress_test
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - mail-stress-network
+
+  app:
+    build: .
+    container_name: mail-stress-app
+    depends_on:
+      - mongo
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DATABASE: mail_stress_test
+    volumes:
+      - ./reports:/root/reports
+      - ./config:/root/config
+    networks:
+      - mail-stress-network
+    # Default command: run full test suite
+    command: ["./mail-stress-test", "-config=config/default.yaml"]
+
+volumes:
+  mongo_data:
+
+networks:
+  mail-stress-network:
+    driver: bridge

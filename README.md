@@ -1472,8 +1472,9 @@ require (
 
 ### Prerequisites
 ```bash
-# Install Go 1.21+
-# Install MongoDB 5.0+
+# Install Go 1.21+ (for local development)
+# Install MongoDB 5.0+ (for local development)
+# Install Docker & Docker Compose (for containerized setup)
 ```
 
 ### Setup
@@ -1492,26 +1493,73 @@ go mod download
 go build -o mail-stress-test ./cmd/main.go
 ```
 
+### NEW: Quick start with run.sh
+
+Script trợ giúp `run.sh` giúp tự động build và chạy các tác vụ phổ biến. Trên macOS/Linux, cấp quyền chạy và sử dụng:
+
+```bash
+chmod +x ./run.sh
+
+# 1) Cài deps và chuẩn bị thư mục báo cáo
+./run.sh setup
+
+# 2) Build binary
+./run.sh build
+
+# 3) Seed dữ liệu ban đầu (đọc config/default.yaml)
+./run.sh seed
+
+# 4) Chạy stress test (không chạy benchmark)
+./run.sh stress
+
+# 5) Chạy benchmark tìm kiếm (không chạy stress test)
+./run.sh bench
+
+# 6) Chạy full (stress + benchmark) – giống mặc định của chương trình
+./run.sh all
+
+# 7) Mở chart HTML gần nhất
+./run.sh open-report
+
+# Tuỳ chọn: chỉ định config khác
+./run.sh all -c ./config/default.yaml
+
+# Truyền thêm tham số trực tiếp cho chương trình Go (sau --)
+./run.sh stress -c ./config/default.yaml -- -seed=false
+```
+
+Ghi chú:
+- Biến môi trường hỗ trợ override: `MONGO_URI`, `MONGO_DATABASE`, `CONFIG_PATH`.
+- `run.sh` tự động build nếu chưa có binary. Đường dẫn có khoảng trắng vẫn hoạt động.
+
 ### Usage Examples
 
 #### 1. Seed initial data
 ```bash
 ./mail-stress-test -seed -config=config/default.yaml
+# hoặc dùng run.sh
+./run.sh seed -c ./config/default.yaml
 ```
 
 #### 2. Run stress test only
 ```bash
 ./mail-stress-test -stress -benchmark=false
+# hoặc dùng run.sh
+./run.sh stress
 ```
 
 #### 3. Run benchmark only
 ```bash
 ./mail-stress-test -stress=false -benchmark
+# hoặc dùng run.sh
+./run.sh bench
 ```
 
 #### 4. Run full test suite
 ```bash
 ./mail-stress-test -config=config/default.yaml
+# hoặc dùng run.sh
+./run.sh all -c ./config/default.yaml
 ```
 
 #### 5. Custom configuration via ENV
@@ -1519,7 +1567,60 @@ go build -o mail-stress-test ./cmd/main.go
 export MONGO_URI="mongodb://localhost:27017"
 export MONGO_DATABASE="my_mail_test"
 ./mail-stress-test
+# hoặc dùng run.sh (ENV vẫn có hiệu lực)
+./run.sh all
 ```
+
+### NEW: Docker Setup & Usage
+
+Sử dụng Docker để chạy ứng dụng và MongoDB mà không cần cài đặt Go hoặc MongoDB locally.
+
+#### Prerequisites
+```bash
+# Install Docker & Docker Compose
+```
+
+#### Quick Start with Docker Compose
+```bash
+# 1) Build và start services (MongoDB + app)
+docker-compose up --build
+
+# 2) Hoặc chạy background
+docker-compose up -d --build
+
+# 3) Xem logs
+docker-compose logs -f app
+
+# 4) Stop services
+docker-compose down
+
+# 5) Clean up (remove volumes)
+docker-compose down -v
+```
+
+#### Custom Configuration
+- Chỉnh sửa `config/default.yaml` hoặc mount config khác.
+- Override environment variables trong `docker-compose.yml` hoặc qua command line.
+
+#### Run Specific Commands
+```bash
+# Seed data
+docker-compose run --rm app ./mail-stress-test -seed -config=config/default.yaml
+
+# Run stress test
+docker-compose run --rm app ./mail-stress-test -stress -benchmark=false
+
+# Run benchmark
+docker-compose run --rm app ./mail-stress-test -stress=false -benchmark
+
+# Full test
+docker-compose run --rm app ./mail-stress-test -config=config/default.yaml
+```
+
+#### Notes
+- Reports được lưu trong `./reports` (mounted volume).
+- MongoDB data persisted trong Docker volume `mongo_data`.
+- App container depends on MongoDB, sẽ tự động wait.
 
 ### Configuration Examples
 
