@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"mail-stress-test/config"
-	"mail-stress-test/database"
 	"mail-stress-test/generator"
+	"mail-stress-test/handler"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -39,23 +38,20 @@ type OperationStats struct {
 
 type StressTest struct {
 	config    *config.Config
-	db        *database.MongoDB
 	generator *generator.DataGenerator
-	userIDs   []string
+	handler   handler.MailHandler
 }
 
-func NewStressTest(cfg *config.Config, db *database.MongoDB) *StressTest {
+// NewStressTest creates a new stress test with the given dependencies
+func NewStressTest(cfg *config.Config, gen *generator.DataGenerator, handler handler.MailHandler) *StressTest {
 	return &StressTest{
 		config:    cfg,
-		db:        db,
-		generator: generator.NewDataGenerator(db),
+		generator: gen,
+		handler:   handler,
 	}
 }
 
 func (st *StressTest) Run(ctx context.Context) (*StressTestResult, error) {
-	// Prepare user IDs
-	st.prepareUsers(ctx)
-
 	result := &StressTestResult{
 		MinResponseTime: time.Hour,
 		OperationStats: map[string]*OperationStats{
@@ -165,67 +161,26 @@ func (st *StressTest) executeOperation(ctx context.Context, operation string) er
 }
 
 func (st *StressTest) createMail(ctx context.Context) error {
-	senderID := st.userIDs[rand.Intn(len(st.userIDs))]
-	numRecipients := rand.Intn(3) + 1
-
-	recipients := make([]string, 0, numRecipients)
-	for i := 0; i < numRecipients; i++ {
-		recipients = append(recipients, st.userIDs[rand.Intn(len(st.userIDs))])
+	// Generate mail request with optional reply
+	var replyToID string
+	if rand.Float32() < 0.3 { // 30% chance of being a reply
+		replyToID = primitive.NewObjectID().Hex() // In real scenario, you'd pick from existing mails
 	}
 
-	return st.generator.CreateMailWithThread(ctx, senderID, recipients)
+	req := st.generator.GenerateCreateMailRequest(replyToID)
+	return st.handler.CreateMail(ctx, req)
 }
 
 func (st *StressTest) listMails(ctx context.Context) error {
-	userID := st.userIDs[rand.Intn(len(st.userIDs))]
-	collection := st.db.Database.Collection("mails")
-
-	cursor, err := collection.Find(ctx, bson.M{"userId": userID})
-	if err != nil {
-		return err
-	}
-	defer cursor.Close(ctx)
-
-	// Consume results
-	for cursor.Next(ctx) {
-		// Just iterate
-	}
-
-	return cursor.Err()
+	req := st.generator.GenerateListMailsRequest()
+	_, err := st.handler.ListMails(ctx, req)
+	return err
 }
 
 func (st *StressTest) searchMails(ctx context.Context) error {
-	userID := st.userIDs[rand.Intn(len(st.userIDs))]
-	searchTerm := generator.Subjects[rand.Intn(len(generator.Subjects))]
-
-	collection := st.db.Database.Collection("mails")
-
-	filter := bson.M{
-		"userId": userID,
-		"$or": []bson.M{
-			{"subject": bson.M{"$regex": searchTerm, "$options": "i"}},
-			{"content": bson.M{"$regex": searchTerm, "$options": "i"}},
-		},
-	}
-
-	cursor, err := collection.Find(ctx, filter)
-	if err != nil {
-		return err
-	}
-	defer cursor.Close(ctx)
-
-	for cursor.Next(ctx) {
-		// Just iterate
-	}
-
-	return cursor.Err()
-}
-
-func (st *StressTest) prepareUsers(ctx context.Context) {
-	st.userIDs = make([]string, st.config.StressTest.NumUsers)
-	for i := 0; i < st.config.StressTest.NumUsers; i++ {
-		st.userIDs[i] = primitive.NewObjectID().Hex()
-	}
+	req := st.generator.GenerateSearchMailsRequest()
+	_, err := st.handler.SearchMails(ctx, req)
+	return err
 }
 
 func (st *StressTest) updateOperationStats(result *StressTestResult, operation string, duration time.Duration, isError bool) {
